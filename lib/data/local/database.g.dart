@@ -52,8 +52,19 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, job, synced];
+  late final GeneratedColumn<int> remoteId = GeneratedColumn<int>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, job, synced, remoteId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -91,6 +102,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
       );
     }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
     return context;
   }
 
@@ -120,6 +137,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
             DriftSqlType.bool,
             data['${effectivePrefix}synced'],
           )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_id'],
+      ),
     );
   }
 
@@ -134,11 +155,13 @@ class User extends DataClass implements Insertable<User> {
   final String name;
   final String job;
   final bool synced;
+  final int? remoteId;
   const User({
     required this.id,
     required this.name,
     required this.job,
     required this.synced,
+    this.remoteId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -147,6 +170,9 @@ class User extends DataClass implements Insertable<User> {
     map['name'] = Variable<String>(name);
     map['job'] = Variable<String>(job);
     map['synced'] = Variable<bool>(synced);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<int>(remoteId);
+    }
     return map;
   }
 
@@ -156,6 +182,10 @@ class User extends DataClass implements Insertable<User> {
       name: Value(name),
       job: Value(job),
       synced: Value(synced),
+      remoteId:
+          remoteId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(remoteId),
     );
   }
 
@@ -169,6 +199,7 @@ class User extends DataClass implements Insertable<User> {
       name: serializer.fromJson<String>(json['name']),
       job: serializer.fromJson<String>(json['job']),
       synced: serializer.fromJson<bool>(json['synced']),
+      remoteId: serializer.fromJson<int?>(json['remoteId']),
     );
   }
   @override
@@ -179,14 +210,22 @@ class User extends DataClass implements Insertable<User> {
       'name': serializer.toJson<String>(name),
       'job': serializer.toJson<String>(job),
       'synced': serializer.toJson<bool>(synced),
+      'remoteId': serializer.toJson<int?>(remoteId),
     };
   }
 
-  User copyWith({int? id, String? name, String? job, bool? synced}) => User(
+  User copyWith({
+    int? id,
+    String? name,
+    String? job,
+    bool? synced,
+    Value<int?> remoteId = const Value.absent(),
+  }) => User(
     id: id ?? this.id,
     name: name ?? this.name,
     job: job ?? this.job,
     synced: synced ?? this.synced,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -194,6 +233,7 @@ class User extends DataClass implements Insertable<User> {
       name: data.name.present ? data.name.value : this.name,
       job: data.job.present ? data.job.value : this.job,
       synced: data.synced.present ? data.synced.value : this.synced,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
     );
   }
 
@@ -203,13 +243,14 @@ class User extends DataClass implements Insertable<User> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('job: $job, ')
-          ..write('synced: $synced')
+          ..write('synced: $synced, ')
+          ..write('remoteId: $remoteId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, job, synced);
+  int get hashCode => Object.hash(id, name, job, synced, remoteId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -217,7 +258,8 @@ class User extends DataClass implements Insertable<User> {
           other.id == this.id &&
           other.name == this.name &&
           other.job == this.job &&
-          other.synced == this.synced);
+          other.synced == this.synced &&
+          other.remoteId == this.remoteId);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -225,17 +267,20 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> name;
   final Value<String> job;
   final Value<bool> synced;
+  final Value<int?> remoteId;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.job = const Value.absent(),
     this.synced = const Value.absent(),
+    this.remoteId = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required String job,
     this.synced = const Value.absent(),
+    this.remoteId = const Value.absent(),
   }) : name = Value(name),
        job = Value(job);
   static Insertable<User> custom({
@@ -243,12 +288,14 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? name,
     Expression<String>? job,
     Expression<bool>? synced,
+    Expression<int>? remoteId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (job != null) 'job': job,
       if (synced != null) 'synced': synced,
+      if (remoteId != null) 'remote_id': remoteId,
     });
   }
 
@@ -257,12 +304,14 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String>? name,
     Value<String>? job,
     Value<bool>? synced,
+    Value<int?>? remoteId,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       job: job ?? this.job,
       synced: synced ?? this.synced,
+      remoteId: remoteId ?? this.remoteId,
     );
   }
 
@@ -281,6 +330,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (synced.present) {
       map['synced'] = Variable<bool>(synced.value);
     }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<int>(remoteId.value);
+    }
     return map;
   }
 
@@ -290,7 +342,8 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('job: $job, ')
-          ..write('synced: $synced')
+          ..write('synced: $synced, ')
+          ..write('remoteId: $remoteId')
           ..write(')'))
         .toString();
   }
@@ -313,6 +366,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       required String name,
       required String job,
       Value<bool> synced,
+      Value<int?> remoteId,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
@@ -320,6 +374,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> job,
       Value<bool> synced,
+      Value<int?> remoteId,
     });
 
 class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
@@ -347,6 +402,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<bool> get synced => $composableBuilder(
     column: $table.synced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteId => $composableBuilder(
+    column: $table.remoteId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -379,6 +439,11 @@ class $$UsersTableOrderingComposer
     column: $table.synced,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -401,6 +466,9 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<bool> get synced =>
       $composableBuilder(column: $table.synced, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
 }
 
 class $$UsersTableTableManager
@@ -435,19 +503,27 @@ class $$UsersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> job = const Value.absent(),
                 Value<bool> synced = const Value.absent(),
-              }) =>
-                  UsersCompanion(id: id, name: name, job: job, synced: synced),
+                Value<int?> remoteId = const Value.absent(),
+              }) => UsersCompanion(
+                id: id,
+                name: name,
+                job: job,
+                synced: synced,
+                remoteId: remoteId,
+              ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
                 required String job,
                 Value<bool> synced = const Value.absent(),
+                Value<int?> remoteId = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
                 name: name,
                 job: job,
                 synced: synced,
+                remoteId: remoteId,
               ),
           withReferenceMapper:
               (p0) =>

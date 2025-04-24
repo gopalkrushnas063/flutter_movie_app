@@ -1,5 +1,3 @@
-
-// lib/features/users/services/user_services.dart
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:movie_app/data/https.dart';
@@ -13,35 +11,45 @@ class UserServices {
   static Future<bool> addUser(String name, String job) async {
     final connectivity = await Connectivity().checkConnectivity();
     final isOnline = connectivity != ConnectivityResult.none;
-
+    
     try {
       if (isOnline) {
         // Try to post to API first
+        debugPrint("Online: Attempting to add user directly to API");
         final response = await Https.apiURL.post(
           "/users",
           data: {"name": name, "job": job},
         );
         
         if (response.statusCode == 201) {
+          debugPrint("Success: User added to API");
           return true;
         }
-        throw Exception('API request failed');
+        throw Exception('API request failed with status ${response.statusCode}');
       } else {
         // Offline - store locally
+        debugPrint("Offline: Storing user locally");
         await _database.addUser(name, job);
-        await SyncService.triggerSync(); // Schedule sync for when online
+        // No need to trigger sync here because we know we're offline
         return true;
       }
     } catch (e) {
+      debugPrint("Error in addUser: $e");
       // Fallback to local storage if online attempt fails
-      await _database.addUser(name, job);
-      if (isOnline) {
-        await SyncService.triggerSync(); // Schedule sync if we were online
+      try {
+        debugPrint("Fallback: Storing user locally after API failure");
+        await _database.addUser(name, job);
+        if (isOnline) {
+          // Schedule sync if we were supposedly online
+          await SyncService.triggerSync();
+        }
+        return true; // We successfully stored locally at least
+      } catch (dbError) {
+        debugPrint("Critical: Failed to store locally: $dbError");
+        return false; // Complete failure
       }
-      return false;
     }
   }
-
   
   static Future<List<UserModel>?> getUsers(int page) async {
     try {

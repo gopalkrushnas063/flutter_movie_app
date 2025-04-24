@@ -1,5 +1,3 @@
-
-// lib/data/local/database.dart
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +11,7 @@ class Users extends Table {
   TextColumn get name => text()();
   TextColumn get job => text()();
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
+  IntColumn get remoteId => integer().nullable()(); // For storing remote ID after sync
 }
 
 @DriftDatabase(tables: [Users])
@@ -22,20 +21,41 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  // Get all unsynced users
   Future<List<User>> getUnsyncedUsers() async {
     return await (select(users)..where((u) => u.synced.equals(false))).get();
   }
 
+  // Get all synced users
+  Future<List<User>> getSyncedUsers() async {
+    return await (select(users)..where((u) => u.synced.equals(true))).get();
+  }
+
+  // Add a new user locally
   Future<int> addUser(String name, String job) async {
     return await into(users).insert(
       UsersCompanion.insert(name: name, job: job, synced: const Value(false)),
     );
   }
 
-  Future<void> markUserAsSynced(int id) async {
+  // Mark a user as synced and optionally update with remote ID
+  Future<void> markUserAsSynced(int id, {int? remoteId}) async {
     await (update(users)..where(
       (u) => u.id.equals(id),
-    )).write(const UsersCompanion(synced: Value(true)));
+    )).write(UsersCompanion(
+      synced: const Value(true),
+      remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
+    ));
+  }
+  
+  // Get all users, sorted by sync status
+  Future<List<User>> getAllUsers() async {
+    return await (select(users)
+      ..orderBy([
+        (u) => OrderingTerm(expression: u.synced, mode: OrderingMode.desc),
+        (u) => OrderingTerm(expression: u.id, mode: OrderingMode.desc),
+      ])
+    ).get();
   }
 }
 

@@ -1,11 +1,11 @@
-
-// lib/features/users/views/user_screen.dart
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:movie_app/Utilities/enums.dart';
 import 'package:movie_app/features/movies/views/movie_list_screen.dart';
 import 'package:movie_app/features/users/controllers/user_controller.dart';
 import 'package:movie_app/features/users/viewModels/user_view_model.dart';
+import 'package:movie_app/main.dart'; // Import to access the connectivity provider
 
 class UserScreen extends ConsumerStatefulWidget {
   const UserScreen({super.key});
@@ -42,25 +42,61 @@ class _UserScreenState extends ConsumerState<UserScreen> {
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userControllerProvider);
+    // Get the current connectivity status
+    final connectivity = ref.watch(connectivityProvider);
+    final isOnline = connectivity != ConnectivityResult.none;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Users'),
         actions: [
-          IconButton(
-            icon: Icon(
-              userState.isOnline ? Icons.wifi : Icons.wifi_off,
-              color: userState.isOnline ? Colors.green : Colors.red,
+          // Updated connectivity indicator with better visuals
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Row(
+              children: [
+                Icon(
+                  isOnline ? Icons.wifi : Icons.wifi_off,
+                  color: isOnline ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isOnline ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    color: isOnline ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            onPressed:
-                () =>
-                    ref
-                        .read(userControllerProvider.notifier)
-                        .checkConnectivity(),
           ),
         ],
       ),
-      body: _buildBody(userState),
+      body: Column(
+        children: [
+          // Show a banner when offline
+          if (!isOnline)
+            Container(
+              color: Colors.orange.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You\'re offline. New users will be saved locally and synced when you\'re back online.',
+                      style: TextStyle(color: Colors.orange.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: _buildBody(userState),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddUserDialog(context),
         child: const Icon(Icons.add),
@@ -187,7 +223,6 @@ class _UserScreenState extends ConsumerState<UserScreen> {
     );
   }
 
-  // In your UserScreen's _showAddUserDialog method
   void _showAddUserDialog(BuildContext context) {
     final nameController = TextEditingController();
     final jobController = TextEditingController();
@@ -217,6 +252,10 @@ class _UserScreenState extends ConsumerState<UserScreen> {
             ),
             Consumer(
               builder: (context, ref, _) {
+                // Check connectivity directly when adding a user
+                final connectivity = ref.watch(connectivityProvider);
+                final isOnline = connectivity != ConnectivityResult.none;
+                
                 return TextButton(
                   onPressed: () async {
                     final name = nameController.text;
@@ -239,7 +278,9 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                         SnackBar(
                           content: Text(
                             success
-                                ? 'User added successfully'
+                                ? isOnline 
+                                    ? 'User added successfully' 
+                                    : 'User saved offline and will sync when online'
                                 : 'Failed to add user',
                           ),
                         ),
