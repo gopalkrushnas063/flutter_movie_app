@@ -30,7 +30,7 @@ class SyncService {
       callbackDispatcher,
       isInDebugMode: true,
     );
-    
+
     // Register periodic sync task
     await Workmanager().registerPeriodicTask(
       "periodicSync",
@@ -44,11 +44,11 @@ class SyncService {
 
   static Future<void> _syncUsers() async {
     final connectivityResults = await Connectivity().checkConnectivity();
-    
+
     // No connectivity results or all are "none" type
     bool hasConnection = connectivityResults.isNotEmpty && 
                          connectivityResults.any((result) => result != ConnectivityResult.none);
-    
+
     if (!hasConnection) {
       debugPrint("No connectivity, skipping sync");
       return;
@@ -56,7 +56,7 @@ class SyncService {
 
     final unsyncedUsers = await _database.getUnsyncedUsers();
     debugPrint("Found ${unsyncedUsers.length} unsynced users to sync");
-    
+
     for (final user in unsyncedUsers) {
       try {
         // Post to API
@@ -64,16 +64,16 @@ class SyncService {
           "/users",
           data: {"name": user.name, "job": user.job},
         );
-        
+
         if (response.statusCode == 201) {
           debugPrint("Successfully synced user ${user.id}");
-          
+
           // If the API returns an ID, store it
           int? remoteId;
           if (response.data != null && response.data['id'] != null) {
             remoteId = int.tryParse(response.data['id'].toString());
           }
-          
+
           await _database.markUserAsSynced(user.id, remoteId: remoteId);
         } else {
           debugPrint("Failed to sync user ${user.id}: ${response.statusCode}");
@@ -90,7 +90,7 @@ class SyncService {
       debugPrint("No connectivity, skipping manual sync");
       return;
     }
-    
+
     debugPrint("Triggering manual sync");
     await Workmanager().registerOneOffTask(
       "manualSync-${DateTime.now().millisecondsSinceEpoch}",
@@ -99,7 +99,7 @@ class SyncService {
         networkType: NetworkType.connected,
       ),
     );
-    
+
     // Also attempt an immediate sync
     _syncUsers();
   }

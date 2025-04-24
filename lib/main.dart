@@ -21,30 +21,35 @@ void main() async {
   // Get initial connectivity
   final connectivity = Connectivity();
   final initialConnectivity = await connectivity.checkConnectivity();
-  
+
   // Create a single container
   final container = ProviderContainer();
-  
+
   // Set the initial connectivity state if available
   if (initialConnectivity.isNotEmpty) {
     container.read(connectivityProvider.notifier).state = initialConnectivity.first;
+  } else {
+    // Default to offline if we can't determine the state
+    container.read(connectivityProvider.notifier).state = ConnectivityResult.none;
   }
-  
+
   // Monitor connectivity changes
   connectivity.onConnectivityChanged.listen((results) {
     if (results.isNotEmpty) {
       final result = results.first;
+      final previousResult = container.read(connectivityProvider);
       container.read(connectivityProvider.notifier).state = result;
-      
-      if (result != ConnectivityResult.none) {
+
+      // Logging connection state changes for debugging
+      if (previousResult == ConnectivityResult.none && result != ConnectivityResult.none) {
         debugPrint("🌐 Connectivity changed to online: ${result.name}");
         SyncService.triggerSync();
-      } else {
+      } else if (previousResult != ConnectivityResult.none && result == ConnectivityResult.none) {
         debugPrint("📴 Device is now offline");
       }
     }
   });
-  
+
   // Use the container with UncontrolledProviderScope
   runApp(
     UncontrolledProviderScope(

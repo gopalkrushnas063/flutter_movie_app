@@ -5,7 +5,8 @@ import 'package:movie_app/Utilities/enums.dart';
 import 'package:movie_app/features/movies/views/movie_list_screen.dart';
 import 'package:movie_app/features/users/controllers/user_controller.dart';
 import 'package:movie_app/features/users/viewModels/user_view_model.dart';
-import 'package:movie_app/main.dart'; // Import to access the connectivity provider
+import 'package:movie_app/main.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart'; // Import to access the connectivity provider
 
 class UserScreen extends ConsumerStatefulWidget {
   const UserScreen({super.key});
@@ -16,6 +17,8 @@ class UserScreen extends ConsumerStatefulWidget {
 
 class _UserScreenState extends ConsumerState<UserScreen> {
   final ScrollController _scrollController = ScrollController();
+  final RefreshController _refreshController = RefreshController();
+  bool _isFirstLoad = true;
 
   @override
   void initState() {
@@ -26,31 +29,50 @@ class _UserScreenState extends ConsumerState<UserScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _refreshController.dispose();
+    super.dispose();
+  }
+
   void _onScroll() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
       ref.read(userControllerProvider.notifier).getUsers();
     }
   }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
+  
+  Future<void> _onRefresh() async {
+    await ref.read(userControllerProvider.notifier).getUsers(refresh: true);
+    _refreshController.refreshCompleted();
   }
 
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userControllerProvider);
-    // Get the current connectivity status
     final connectivity = ref.watch(connectivityProvider);
     final isOnline = connectivity != ConnectivityResult.none;
+
+    // Add the listener in the build method
+    ref.listen<ConnectivityResult>(connectivityProvider, (previous, next) {
+      if (previous != next && next != ConnectivityResult.none && !_isFirstLoad) {
+        // If connectivity changed and we're now online, trigger a refresh
+        _refreshController.requestRefresh();
+      }
+    });
+
+    // Set first load to false after initial build
+    if (_isFirstLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isFirstLoad = false;
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Users'),
         actions: [
-          // Updated connectivity indicator with better visuals
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Row(
@@ -74,7 +96,6 @@ class _UserScreenState extends ConsumerState<UserScreen> {
       ),
       body: Column(
         children: [
-          // Show a banner when offline
           if (!isOnline)
             Container(
               color: Colors.orange.shade100,
@@ -85,7 +106,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You\'re offline. New users will be saved locally and synced when you\'re back online.',
+                      'You\'re offline. Showing cached data. New users will be saved locally and synced when you\'re back online.',
                       style: TextStyle(color: Colors.orange.shade900),
                     ),
                   ),
@@ -93,7 +114,11 @@ class _UserScreenState extends ConsumerState<UserScreen> {
               ),
             ),
           Expanded(
-            child: _buildBody(userState),
+            child: SmartRefresher(
+              controller: _refreshController,
+              onRefresh: _onRefresh,
+              child: _buildBody(userState),
+            ),
           ),
         ],
       ),
@@ -255,7 +280,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                 // Check connectivity directly when adding a user
                 final connectivity = ref.watch(connectivityProvider);
                 final isOnline = connectivity != ConnectivityResult.none;
-                
+
                 return TextButton(
                   onPressed: () async {
                     final name = nameController.text;
@@ -278,8 +303,8 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                         SnackBar(
                           content: Text(
                             success
-                                ? isOnline 
-                                    ? 'User added successfully' 
+                                ? isOnline
+                                    ? 'User added successfully'
                                     : 'User saved offline and will sync when online'
                                 : 'Failed to add user',
                           ),

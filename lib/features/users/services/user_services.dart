@@ -11,7 +11,7 @@ class UserServices {
   static Future<bool> addUser(String name, String job) async {
     final connectivity = await Connectivity().checkConnectivity();
     final isOnline = connectivity != ConnectivityResult.none;
-    
+
     try {
       if (isOnline) {
         // Try to post to API first
@@ -20,12 +20,14 @@ class UserServices {
           "/users",
           data: {"name": name, "job": job},
         );
-        
+
         if (response.statusCode == 201) {
           debugPrint("Success: User added to API");
           return true;
         }
-        throw Exception('API request failed with status ${response.statusCode}');
+        throw Exception(
+          'API request failed with status ${response.statusCode}',
+        );
       } else {
         // Offline - store locally
         debugPrint("Offline: Storing user locally");
@@ -50,19 +52,54 @@ class UserServices {
       }
     }
   }
-  
-  static Future<List<UserModel>?> getUsers(int page) async {
+
+  static Future<List<UserModel>?> getUsers(
+    int page, {
+    bool isOnline = true,
+  }) async {
+    if (isOnline) {
+      try {
+        var res = await Https.apiURL.get("/users?page=$page");
+        if (res.data != null && res.data['data'] is List) {
+          final users =
+              (res.data['data'] as List)
+                  .map<UserModel>((e) => UserModel.fromJson(e))
+                  .toList();
+
+          // Cache only first page data
+          if (page == 1) {
+            await _database.cacheRemoteUsers(users);
+          }
+
+          return users;
+        }
+        return null;
+      } catch (e) {
+        debugPrint("Error fetching users: $e");
+        // Try to fall back to cache if API fails
+        return await _getCachedUsers();
+      }
+    } else {
+      // Offline mode - get from cache
+      return await _getCachedUsers();
+    }
+  }
+
+  static Future<List<UserModel>?> _getCachedUsers() async {
     try {
-      var res = await Https.apiURL.get("/users?page=$page");
-      if (res.data != null && res.data['data'] is List) {
-        return (res.data['data'] as List)
-            .map<UserModel>((e) => UserModel.fromJson(e))
-            .toList();
+      final cachedUsers = await _database.getCachedRemoteUsers();
+      if (cachedUsers.isNotEmpty) {
+        debugPrint("Loaded ${cachedUsers.length} users from cache");
+        return cachedUsers;
       }
       return null;
     } catch (e) {
-      debugPrint("Error fetching users: $e");
+      debugPrint("Error getting cached users: $e");
       return null;
     }
+  }
+
+  static Future<bool> hasCachedData() async {
+    return await _database.hasCachedUsers();
   }
 }
