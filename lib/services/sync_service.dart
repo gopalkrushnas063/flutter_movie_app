@@ -10,8 +10,10 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     debugPrint("Background task $task started");
     try {
+      // Use the singleton instance within the isolate
+      final database = AppDatabase(); 
       if (task == SyncService.syncTask) {
-        await SyncService._syncUsers();
+        await SyncService._syncUsers(database); // Pass the db instance
       }
       return Future.value(true);
     } catch (e) {
@@ -23,7 +25,8 @@ void callbackDispatcher() {
 
 class SyncService {
   static const String syncTask = "syncUsersTask";
-  static final AppDatabase _database = AppDatabase();
+  // No longer need a static instance here, get it via factory or pass it
+  // static final AppDatabase _database = AppDatabase(); 
 
   static Future<void> initialize() async {
     await Workmanager().initialize(
@@ -36,13 +39,15 @@ class SyncService {
       "periodicSync",
       syncTask,
       frequency: const Duration(minutes: 15),
+      initialDelay: const Duration(seconds: 30), // Add initial delay
       constraints: Constraints(
         networkType: NetworkType.connected, // Only run when connected
       ),
     );
   }
 
-  static Future<void> _syncUsers() async {
+  // Accept AppDatabase instance, required for background isolate
+  static Future<void> _syncUsers(AppDatabase database) async { 
     final connectivityResults = await Connectivity().checkConnectivity();
 
     // No connectivity results or all are "none" type
@@ -53,8 +58,9 @@ class SyncService {
       debugPrint("No connectivity, skipping sync");
       return;
     }
-
-    final unsyncedUsers = await _database.getUnsyncedUsers();
+    
+    // Use the passed database instance
+    final unsyncedUsers = await database.getUnsyncedUsers(); 
     debugPrint("Found ${unsyncedUsers.length} unsynced users to sync");
 
     for (final user in unsyncedUsers) {
@@ -71,36 +77,50 @@ class SyncService {
           // If the API returns an ID, store it
           int? remoteId;
           if (response.data != null && response.data['id'] != null) {
-            remoteId = int.tryParse(response.data['id'].toString());
+             // Ensure correct parsing, handle potential String/int
+             final idValue = response.data['id'];
+             if (idValue is int) {
+                remoteId = idValue;
+             } else if (idValue is String) {
+                remoteId = int.tryParse(idValue);
+             }
           }
-
-          await _database.markUserAsSynced(user.id, remoteId: remoteId);
+          
+          // Use the passed database instance
+          await database.markUserAsSynced(user.id, remoteId: remoteId); 
         } else {
-          debugPrint("Failed to sync user ${user.id}: ${response.statusCode}");
+          debugPrint("Failed to sync user ${user.id}: Status ${response.statusCode}");
         }
       } catch (e) {
-        debugPrint("Error syncing user ${user.id}: $e");
+         debugPrint("Error syncing user ${user.id}: $e");
+         // Consider if retry logic is needed here or if periodic task is sufficient
       }
     }
   }
 
   static Future<void> triggerSync() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
-      debugPrint("No connectivity, skipping manual sync");
+    // Check connectivity before scheduling
+    final connectivityResults = await Connectivity().checkConnectivity();
+    bool hasConnection = connectivityResults.isNotEmpty && 
+                         connectivityResults.any((result) => result != ConnectivityResult.none);
+
+    if (!hasConnection) {
+      debugPrint("No connectivity, skipping manual sync trigger");
       return;
     }
 
-    debugPrint("Triggering manual sync");
+    debugPrint("Triggering manual sync via WorkManager");
+    // Only schedule the one-off task. Do NOT call _syncUsers directly.
     await Workmanager().registerOneOffTask(
-      "manualSync-${DateTime.now().millisecondsSinceEpoch}",
+      "manualSync-${DateTime.now().millisecondsSinceEpoch}", // Unique name
       syncTask,
       constraints: Constraints(
         networkType: NetworkType.connected,
       ),
+      // Optional: Add a small delay to allow other startup tasks to complete
+      initialDelay: const Duration(seconds: 5), 
     );
 
-    // Also attempt an immediate sync
-    _syncUsers();
+    // REMOVED: _syncUsers(); 
   }
 }

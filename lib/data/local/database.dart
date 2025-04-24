@@ -27,10 +27,16 @@ class RemoteUsers extends Table {
 
 @DriftDatabase(tables: [Users, RemoteUsers])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase._internal() : super(_openConnection());
+
+  static final AppDatabase _instance = AppDatabase._internal();
+
+  factory AppDatabase() {
+    return _instance;
+  }
 
   @override
-  int get schemaVersion => 2; // Increased from 1 to 2
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,15 +45,11 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (Migrator m, int from, int to) async {
       if (from < 2) {
-        // Create the RemoteUsers table if upgrading from schema version 1
         await m.createTable(remoteUsers);
       }
     },
-    // Optional: add a callback to verify the migration was successful
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
-      
-      // Log migration details - useful for debugging
       if (details.wasCreated) {
         debugPrint("Database was created at version ${details.versionNow}");
       } else if (details.hadUpgrade) {
@@ -56,24 +58,20 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
-  // Get all unsynced users
   Future<List<User>> getUnsyncedUsers() async {
     return await (select(users)..where((u) => u.synced.equals(false))).get();
   }
 
-  // Get all synced users
   Future<List<User>> getSyncedUsers() async {
     return await (select(users)..where((u) => u.synced.equals(true))).get();
   }
 
-  // Add a new user locally
   Future<int> addUser(String name, String job) async {
     return await into(users).insert(
       UsersCompanion.insert(name: name, job: job, synced: const Value(false)),
     );
   }
 
-  // Mark a user as synced and optionally update with remote ID
   Future<void> markUserAsSynced(int id, {int? remoteId}) async {
     await (update(users)..where(
       (u) => u.id.equals(id),
@@ -83,7 +81,6 @@ class AppDatabase extends _$AppDatabase {
     ));
   }
   
-  // Get all users, sorted by sync status
   Future<List<User>> getAllUsers() async {
     return await (select(users)
       ..orderBy([
@@ -93,11 +90,9 @@ class AppDatabase extends _$AppDatabase {
     ).get();
   }
 
-  // Add method to cache remote users
   Future<void> cacheRemoteUsers(List<UserModel> users) async {
     try {
       await batch((batch) {
-        // Clear old cache and insert new data
         batch.deleteAll(remoteUsers);
         
         for (final user in users) {
@@ -116,11 +111,9 @@ class AppDatabase extends _$AppDatabase {
       debugPrint("Cached ${users.length} remote users");
     } catch (e) {
       debugPrint("Error caching remote users: $e");
-      // If the error is about the table not existing, the migration might have failed
       if (e.toString().contains('no such table')) {
         debugPrint("Attempting to create RemoteUsers table manually");
         try {
-          // Manual attempt to create the table
           await transaction(() async {
             await customStatement('''
               CREATE TABLE IF NOT EXISTS remote_users (
@@ -133,7 +126,6 @@ class AppDatabase extends _$AppDatabase {
               )
             ''');
           });
-          // Try again after manually creating the table
           await cacheRemoteUsers(users);
         } catch (retryError) {
           debugPrint("Failed to manually create table: $retryError");
@@ -142,7 +134,6 @@ class AppDatabase extends _$AppDatabase {
     }
   }
   
-  // Get cached remote users
   Future<List<UserModel>> getCachedRemoteUsers() async {
     try {
       final cachedUsers = await select(remoteUsers).get();
@@ -160,7 +151,6 @@ class AppDatabase extends _$AppDatabase {
     }
   }
   
-  // Check if we have cached data
   Future<bool> hasCachedUsers() async {
     try {
       final count = await (select(remoteUsers)
@@ -174,7 +164,6 @@ class AppDatabase extends _$AppDatabase {
     }
   }
   
-  // Clear all cached remote users - useful for testing
   Future<void> clearCachedUsers() async {
     try {
       await delete(remoteUsers).go();
@@ -189,19 +178,6 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    
-    // Optional: Uncomment for development to force recreation of the database
-    // if you're having migration issues during development
-    
-    if (file.existsSync()) {
-      try {
-        file.deleteSync();
-        debugPrint("Database deleted for clean recreation");
-      } catch (e) {
-        debugPrint("Could not delete database: $e");
-      }
-    }
-    
     
     return NativeDatabase(file);
   });
