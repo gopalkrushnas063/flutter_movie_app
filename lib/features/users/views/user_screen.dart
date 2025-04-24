@@ -5,7 +5,8 @@ import 'package:movie_app/Utilities/enums.dart';
 import 'package:movie_app/features/movies/views/movie_list_screen.dart';
 import 'package:movie_app/features/users/controllers/user_controller.dart';
 import 'package:movie_app/features/users/viewModels/user_view_model.dart';
-import 'package:movie_app/main.dart'; // Import to access the connectivity provider
+import 'package:movie_app/main.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart'; // Import to access the connectivity provider
 
 class UserScreen extends ConsumerStatefulWidget {
   const UserScreen({super.key});
@@ -16,6 +17,7 @@ class UserScreen extends ConsumerStatefulWidget {
 
 class _UserScreenState extends ConsumerState<UserScreen> {
   final ScrollController _scrollController = ScrollController();
+  final RefreshController _refreshController = RefreshController();
 
   @override
   void initState() {
@@ -32,10 +34,16 @@ class _UserScreenState extends ConsumerState<UserScreen> {
       ref.read(userControllerProvider.notifier).getUsers();
     }
   }
+  
+  Future<void> _onRefresh() async {
+    await ref.read(userControllerProvider.notifier).getUsers(refresh: true);
+    _refreshController.refreshCompleted();
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _refreshController.dispose();
     super.dispose();
   }
 
@@ -85,7 +93,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You\'re offline. New users will be saved locally and synced when you\'re back online.',
+                      'You\'re offline. Showing cached data. New users will be saved locally and synced when you\'re back online.',
                       style: TextStyle(color: Colors.orange.shade900),
                     ),
                   ),
@@ -93,7 +101,11 @@ class _UserScreenState extends ConsumerState<UserScreen> {
               ),
             ),
           Expanded(
-            child: _buildBody(userState),
+            child: SmartRefresher(
+              controller: _refreshController,
+              onRefresh: _onRefresh,
+              child: _buildBody(userState),
+            ),
           ),
         ],
       ),

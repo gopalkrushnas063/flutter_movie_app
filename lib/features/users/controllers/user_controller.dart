@@ -47,15 +47,63 @@ class UserController extends StateNotifier<UserViewModel> {
           
           // Trigger a refresh
           getUsers(refresh: true);
+        } else if (!wasOffline && !isNowOnline) {
+          // Just went offline - try to load from cache
+          debugPrint("📵 Just went offline - loading from cache");
+          _loadCachedUsers();
         }
       }
     );
+    
+    // Check for cache initially
+    _checkInitialCache();
+  }
+  
+  // Check if we have cache on startup
+  Future<void> _checkInitialCache() async {
+    final hasCache = await UserServices.hasCachedData();
+    if (hasCache) {
+      debugPrint("Found cached data on startup");
+      if (!state.isOnline) {
+        // If we're starting offline, load from cache
+        await _loadCachedUsers();
+      }
+    }
+  }
+  
+  // Load users from cache
+  Future<void> _loadCachedUsers() async {
+    if (state.status == APIState.loading) return;
+    
+    state = state.copyWith(status: APIState.loading);
+    
+    final cachedUsers = await UserServices.getUsers(1, isOnline: false);
+    
+    if (cachedUsers != null && cachedUsers.isNotEmpty) {
+      state = state.copyWith(
+        status: APIState.success,
+        users: cachedUsers,
+        currentPage: 2, // Set to 2 so we'll fetch page 2 when back online
+        hasReachedMax: true, // Prevent pagination while offline
+      );
+    } else {
+      state = state.copyWith(
+        status: APIState.error,
+        error: "No cached data available"
+      );
+    }
   }
 
-  // Add a refresh parameter to the getUsers method
+  // Updated getUsers method
   Future<void> getUsers({bool refresh = false}) async {
     // Don't load more if we've reached the max pages or already loading
     if (state.hasReachedMax && !refresh || state.status == APIState.loading) return;
+
+    // If we're offline, load from cache
+    if (!state.isOnline) {
+      await _loadCachedUsers();
+      return;
+    }
 
     // If refreshing, reset the page count
     if (refresh) {
@@ -70,19 +118,11 @@ class UserController extends StateNotifier<UserViewModel> {
     }
 
     try {
-      final response = await Https.apiURL.get(
-        "/users?page=${state.currentPage}",
-      );
-
-      if (response.data != null) {
-        final List<UserModel> users =
-            (response.data['data'] as List)
-                .map<UserModel>((e) => UserModel.fromJson(e))
-                .toList();
-
-        final int totalPages = response.data['total_pages'];
-        final bool hasReachedMax = state.currentPage >= totalPages;
-
+      final users = await UserServices.getUsers(state.currentPage, isOnline: true);
+      
+      if (users != null) {
+        final bool hasReachedMax = users.isEmpty || users.length < 6; // Assuming 6 per page
+        
         state = state.copyWith(
           status: APIState.success,
           users: refresh ? users : [...state.users ?? [], ...users],
