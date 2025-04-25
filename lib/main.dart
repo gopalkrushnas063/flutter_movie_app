@@ -76,7 +76,6 @@
 //   }
 // }
 
-
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,7 +98,7 @@ final databaseInitializedProvider = StateProvider<bool>((ref) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Get the database instance early but don't initialize fully
   final database = AppDatabase();
 
@@ -112,29 +111,26 @@ void main() async {
 
   // Set the initial connectivity state if available
   if (initialConnectivity.isNotEmpty) {
-    container.read(connectivityProvider.notifier).state = initialConnectivity.first;
+    container.read(connectivityProvider.notifier).state =
+        initialConnectivity.first;
   } else {
     // Default to offline if we can't determine the state
-    container.read(connectivityProvider.notifier).state = ConnectivityResult.none;
+    container.read(connectivityProvider.notifier).state =
+        ConnectivityResult.none;
   }
 
   // Launch the app immediately, without waiting for more initialization
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const MyApp(),
-    )
-  );
-  
+  runApp(UncontrolledProviderScope(container: container, child: const MyApp()));
+
   // Perform heavy initialization tasks after UI is visible
   Future.delayed(const Duration(seconds: 2), () async {
     // Initialize database fully
     await database.initializeDatabase();
     container.read(databaseInitializedProvider.notifier).state = true;
-    
+
     // Now initialize sync service with a delay
     await SyncService.initialize();
-    
+
     // Setup connectivity listener
     connectivity.onConnectivityChanged.listen((results) {
       if (results.isNotEmpty) {
@@ -143,13 +139,15 @@ void main() async {
         container.read(connectivityProvider.notifier).state = result;
 
         // Logging connection state changes for debugging
-        if (previousResult == ConnectivityResult.none && result != ConnectivityResult.none) {
+        if (previousResult == ConnectivityResult.none &&
+            result != ConnectivityResult.none) {
           debugPrint("🌐 Connectivity changed to online: ${result.name}");
           // Don't trigger sync immediately, give the connection time to stabilize
           Future.delayed(const Duration(seconds: 2), () {
             SyncService.triggerSync();
           });
-        } else if (previousResult != ConnectivityResult.none && result == ConnectivityResult.none) {
+        } else if (previousResult != ConnectivityResult.none &&
+            result == ConnectivityResult.none) {
           debugPrint("📴 Device is now offline");
         }
       }
@@ -163,10 +161,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
       title: 'Movie App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: true,
       ),
       home: const SplashScreen(), // Start with splash screen
@@ -191,11 +190,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _navigateToHome() async {
     // Allow splash screen to display for at least 1.5 seconds
     await Future.delayed(const Duration(milliseconds: 1500));
-    
+
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const UserScreen())
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const UserScreen()));
     }
   }
 

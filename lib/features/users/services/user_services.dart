@@ -32,23 +32,20 @@ class UserServices {
         // Offline - store locally
         debugPrint("Offline: Storing user locally");
         await _database.addUser(name, job);
-        // No need to trigger sync here because we know we're offline
         return true;
       }
     } catch (e) {
       debugPrint("Error in addUser: $e");
-      // Fallback to local storage if online attempt fails
       try {
         debugPrint("Fallback: Storing user locally after API failure");
         await _database.addUser(name, job);
         if (isOnline) {
-          // Schedule sync if we were supposedly online
           await SyncService.triggerSync();
         }
-        return true; // We successfully stored locally at least
+        return true;
       } catch (dbError) {
         debugPrint("Critical: Failed to store locally: $dbError");
-        return false; // Complete failure
+        return false;
       }
     }
   }
@@ -66,21 +63,17 @@ class UserServices {
                   .map<UserModel>((e) => UserModel.fromJson(e))
                   .toList();
 
-          // Cache only first page data
           if (page == 1) {
             await _database.cacheRemoteUsers(users);
           }
-
           return users;
         }
         return null;
       } catch (e) {
         debugPrint("Error fetching users: $e");
-        // Try to fall back to cache if API fails
         return await _getCachedUsers();
       }
     } else {
-      // Offline mode - get from cache
       return await _getCachedUsers();
     }
   }

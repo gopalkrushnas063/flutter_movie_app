@@ -80,7 +80,7 @@
 //       remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
 //     ));
 //   }
-  
+
 //   Future<List<User>> getAllUsers() async {
 //     return await (select(users)
 //       ..orderBy([
@@ -94,7 +94,7 @@
 //     try {
 //       await batch((batch) {
 //         batch.deleteAll(remoteUsers);
-        
+
 //         for (final user in users) {
 //           batch.insert(
 //             remoteUsers,
@@ -133,11 +133,11 @@
 //       }
 //     }
 //   }
-  
+
 //   Future<List<UserModel>> getCachedRemoteUsers() async {
 //     try {
 //       final cachedUsers = await select(remoteUsers).get();
-      
+
 //       return cachedUsers.map((user) => UserModel(
 //         id: user.id,
 //         email: user.email,
@@ -150,7 +150,7 @@
 //       return [];
 //     }
 //   }
-  
+
 //   Future<bool> hasCachedUsers() async {
 //     try {
 //       final count = await (select(remoteUsers)
@@ -163,7 +163,7 @@
 //       return false;
 //     }
 //   }
-  
+
 //   Future<void> clearCachedUsers() async {
 //     try {
 //       await delete(remoteUsers).go();
@@ -178,11 +178,10 @@
 //   return LazyDatabase(() async {
 //     final dbFolder = await getApplicationDocumentsDirectory();
 //     final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    
+
 //     return NativeDatabase(file);
 //   });
 // }
-
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -199,7 +198,9 @@ class Users extends Table {
   TextColumn get name => text()();
   TextColumn get job => text()();
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
-  IntColumn get remoteId => integer().nullable()(); // For storing remote ID after sync
+  IntColumn get remoteId => integer().nullable()();
+  DateTimeColumn get lastSyncAttempt =>
+      dateTime().nullable()(); // Add this line
 }
 
 class RemoteUsers extends Table {
@@ -215,10 +216,10 @@ class RemoteUsers extends Table {
 class AppDatabase extends _$AppDatabase {
   // Private constructor with lazy initialization
   AppDatabase._internal() : super(_openConnection());
-  
+
   // Singleton instance
   static AppDatabase? _instance;
-  
+
   // Factory constructor that returns the singleton instance
   factory AppDatabase() {
     _instance ??= AppDatabase._internal();
@@ -229,7 +230,7 @@ class AppDatabase extends _$AppDatabase {
   bool _isInitialized = false;
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -240,13 +241,18 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.createTable(remoteUsers);
       }
+      if (from < 3) {
+        await m.addColumn(users, users.lastSyncAttempt);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
       if (details.wasCreated) {
         debugPrint("Database was created at version ${details.versionNow}");
       } else if (details.hadUpgrade) {
-        debugPrint("Database was upgraded from version ${details.versionBefore} to ${details.versionNow}");
+        debugPrint(
+          "Database was upgraded from version ${details.versionBefore} to ${details.versionNow}",
+        );
       }
     },
   );
@@ -254,11 +260,11 @@ class AppDatabase extends _$AppDatabase {
   // Method to perform heavy initialization tasks that can be deferred
   Future<void> initializeDatabase() async {
     if (_isInitialized) return;
-    
+
     try {
       // Perform any additional initialization here
       // This could include creating indexes, validating data, etc.
-      
+
       _isInitialized = true;
       debugPrint("Database fully initialized");
     } catch (e) {
@@ -266,8 +272,19 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  // Future<List<User>> getUnsyncedUsers() async {
+  //   return await (select(users)..where((u) => u.synced.equals(false))).get();
+  // }
+
   Future<List<User>> getUnsyncedUsers() async {
     return await (select(users)..where((u) => u.synced.equals(false))).get();
+  }
+
+  Stream<int> watchUnsyncedUsersCount() {
+    return (select(users)..where((u) => u.synced.equals(false)))
+        .watch()
+        .map((users) => users.length)
+        .distinct(); // Add distinct() to avoid duplicate emissions
   }
 
   Future<List<User>> getSyncedUsers() async {
@@ -281,28 +298,36 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> markUserAsSynced(int id, {int? remoteId}) async {
-    await (update(users)..where(
-      (u) => u.id.equals(id),
-    )).write(UsersCompanion(
-      synced: const Value(true),
-      remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
-    ));
+    await (update(users)..where((u) => u.id.equals(id))).write(
+      UsersCompanion(
+        synced: const Value(true),
+        remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
+        lastSyncAttempt: Value(DateTime.now()), // Make sure to update this too
+      ),
+    );
   }
-  
+
+  // Future<void> markUserAsSynced(int id, {int? remoteId}) async {
+  //   await (update(users)..where((u) => u.id.equals(id))).write(
+  //     UsersCompanion(
+  //       synced: const Value(true),
+  //       remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
+  //     ),
+  //   );
+  // }
+
   Future<List<User>> getAllUsers() async {
-    return await (select(users)
-      ..orderBy([
-        (u) => OrderingTerm(expression: u.synced, mode: OrderingMode.desc),
-        (u) => OrderingTerm(expression: u.id, mode: OrderingMode.desc),
-      ])
-    ).get();
+    return await (select(users)..orderBy([
+      (u) => OrderingTerm(expression: u.synced, mode: OrderingMode.desc),
+      (u) => OrderingTerm(expression: u.id, mode: OrderingMode.desc),
+    ])).get();
   }
 
   Future<void> cacheRemoteUsers(List<UserModel> users) async {
     try {
       await batch((batch) {
         batch.deleteAll(remoteUsers);
-        
+
         for (final user in users) {
           batch.insert(
             remoteUsers,
@@ -341,37 +366,39 @@ class AppDatabase extends _$AppDatabase {
       }
     }
   }
-  
+
   Future<List<UserModel>> getCachedRemoteUsers() async {
     try {
       final cachedUsers = await select(remoteUsers).get();
-      
-      return cachedUsers.map((user) => UserModel(
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        avatar: user.avatar,
-      )).toList();
+
+      return cachedUsers
+          .map(
+            (user) => UserModel(
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              avatar: user.avatar,
+            ),
+          )
+          .toList();
     } catch (e) {
       debugPrint("Error getting cached users: $e");
       return [];
     }
   }
-  
+
   Future<bool> hasCachedUsers() async {
     try {
       final count = await (select(remoteUsers)
-        ..limit(1))
-        .get()
-        .then((value) => value.length);
+        ..limit(1)).get().then((value) => value.length);
       return count > 0;
     } catch (e) {
       debugPrint("Error checking cached users: $e");
       return false;
     }
   }
-  
+
   Future<void> clearCachedUsers() async {
     try {
       await delete(remoteUsers).go();
@@ -380,13 +407,35 @@ class AppDatabase extends _$AppDatabase {
       debugPrint("Error clearing cached users: $e");
     }
   }
+
+  Future<void> markUserAsSyncAttempt(int id) async {
+    await (update(users)..where(
+      (u) => u.id.equals(id),
+    )).write(UsersCompanion(lastSyncAttempt: Value(DateTime.now())));
+  }
+
+  Future<List<Map<String, dynamic>>> getLocalUsersWithStatus() async {
+    final query = select(users);
+    final localUsers = await query.get();
+
+    return localUsers.map((user) {
+      return {
+        'id': user.id,
+        'name': user.name,
+        'job': user.job,
+        'synced': user.synced,
+        'lastSyncAttempt': user.lastSyncAttempt,
+        'remoteId': user.remoteId,
+      };
+    }).toList();
+  }
 }
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    
+
     return NativeDatabase(file);
   });
 }

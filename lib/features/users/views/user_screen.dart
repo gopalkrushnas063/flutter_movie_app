@@ -2,11 +2,17 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:movie_app/Utilities/enums.dart';
+import 'package:movie_app/data/local/database.dart';
+import 'package:movie_app/data/local/db_provider.dart';
 import 'package:movie_app/features/movies/views/movie_list_screen.dart';
+import 'package:movie_app/features/offlineRecords/offline_records.dart';
+import 'package:movie_app/features/users/controllers/unsynced_counter_provider.dart';
 import 'package:movie_app/features/users/controllers/user_controller.dart';
 import 'package:movie_app/features/users/viewModels/user_view_model.dart';
 import 'package:movie_app/main.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart'; // Import to access the connectivity provider
+import 'package:provider/provider.dart'; // Add this import
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 
 class UserScreen extends ConsumerStatefulWidget {
   const UserScreen({super.key});
@@ -42,7 +48,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
       ref.read(userControllerProvider.notifier).getUsers();
     }
   }
-  
+
   Future<void> _onRefresh() async {
     await ref.read(userControllerProvider.notifier).getUsers(refresh: true);
     _refreshController.refreshCompleted();
@@ -56,7 +62,9 @@ class _UserScreenState extends ConsumerState<UserScreen> {
 
     // Add the listener in the build method
     ref.listen<ConnectivityResult>(connectivityProvider, (previous, next) {
-      if (previous != next && next != ConnectivityResult.none && !_isFirstLoad) {
+      if (previous != next &&
+          next != ConnectivityResult.none &&
+          !_isFirstLoad) {
         // If connectivity changed and we're now online, trigger a refresh
         _refreshController.requestRefresh();
       }
@@ -70,9 +78,54 @@ class _UserScreenState extends ConsumerState<UserScreen> {
     }
 
     return Scaffold(
+      // In your UserScreen's appBar
       appBar: AppBar(
         title: const Text('Users'),
         actions: [
+          riverpod.Consumer(
+            builder: (context, ref, child) {
+              final unsyncedCount = ref.watch(unsyncedCountProvider).value ?? 0;
+
+              return IconButton(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.storage),
+                    if (unsyncedCount > 0)
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$unsyncedCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const OfflineUsersScreen(),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Row(
@@ -99,7 +152,10 @@ class _UserScreenState extends ConsumerState<UserScreen> {
           if (!isOnline)
             Container(
               color: Colors.orange.shade100,
-              padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 6.0,
+                horizontal: 16.0,
+              ),
               child: Row(
                 children: [
                   const Icon(Icons.info_outline, color: Colors.orange),
@@ -167,21 +223,22 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => MovieListScreen(userId: user.id),
-                          ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => MovieListScreen(userId: user.id),
                         ),
+                      ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16.0,
@@ -275,7 +332,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            Consumer(
+            riverpod.Consumer(
               builder: (context, ref, _) {
                 // Check connectivity directly when adding a user
                 final connectivity = ref.watch(connectivityProvider);

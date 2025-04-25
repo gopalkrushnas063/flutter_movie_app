@@ -83,7 +83,7 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
               () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => MovieDetailScreen(movieId: movie.id),
+                  builder: (context) => MovieDetailScreen(movieId: movie.imdbID),
                 ),
               ),
           child: Card(
@@ -113,7 +113,7 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        movie.releaseDate,
+                        movie.year,
                         style: const TextStyle(color: Colors.grey),
                       ),
                     ],
