@@ -51,7 +51,8 @@ class _MovieListScreenState extends ConsumerState<MovieListScreen> {
   }
 
   Widget _buildBody(MovieViewModel movieState) {
-    if (movieState.status == APIState.initial) {
+    if (movieState.status == APIState.initial ||
+        movieState.status == APIState.loading) {
       return const Center(child: CircularProgressIndicator());
     } else if (movieState.status == APIState.error) {
       return const Center(child: Text('Error loading movies'));

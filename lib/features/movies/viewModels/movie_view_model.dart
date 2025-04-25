@@ -5,17 +5,18 @@ import 'package:movie_app/features/movies/models/movie_model.dart';
 
 class MovieViewModel {
   final APIState status;
-  final List<MovieModel>? movies;
+  final List<MovieModel> movies; // Non-nullable
   final int currentPage;
   final bool hasReachedMax;
 
   MovieViewModel({
     this.status = APIState.initial,
-    this.movies,
+    this.movies = const [], // Empty list by default
     this.currentPage = 1,
     this.hasReachedMax = false,
   });
 
+  
   MovieViewModel copyWith({
     APIState? status,
     List<MovieModel>? movies,

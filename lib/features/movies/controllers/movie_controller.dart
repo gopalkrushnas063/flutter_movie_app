@@ -8,7 +8,7 @@ import 'package:movie_app/features/movies/viewModels/movie_view_model.dart';
 
 
 final movieControllerProvider = StateNotifierProvider<MovieController, MovieViewModel>(
-  (ref) => MovieController(MovieViewModel()),
+  (ref) => MovieController(MovieViewModel())..getMovies(),
 );
 
 class MovieController extends StateNotifier<MovieViewModel> {
