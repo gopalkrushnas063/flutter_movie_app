@@ -14,8 +14,6 @@ class UserServices {
 
     try {
       if (isOnline) {
-        // Try to post to API first
-        debugPrint("Online: Attempting to add user directly to API");
         final response = await Https.apiURL.post(
           "/users",
           data: {"name": name, "job": job},
@@ -24,25 +22,24 @@ class UserServices {
         if (response.statusCode == 201) {
           debugPrint("Success: User added to API");
           return true;
+        } else {
+          debugPrint('API request failed with status ${response.statusCode}');
+          return false; // return false instead of throwing
         }
-        throw Exception(
-          'API request failed with status ${response.statusCode}',
-        );
       } else {
-        // Offline - store locally
-        debugPrint("Offline: Storing user locally");
         await _database.addUser(name, job);
         return true;
       }
     } catch (e) {
       debugPrint("Error in addUser: $e");
+
+      // Even if API fails (network issues etc.), fallback to local storage
       try {
-        debugPrint("Fallback: Storing user locally after API failure");
         await _database.addUser(name, job);
         if (isOnline) {
           await SyncService.triggerSync();
         }
-        return true;
+        return false; // return false because online save failed
       } catch (dbError) {
         debugPrint("Critical: Failed to store locally: $dbError");
         return false;
@@ -56,7 +53,7 @@ class UserServices {
   }) async {
     if (isOnline) {
       try {
-        var res = await Https.apiURL.get("/users?page=2");
+        var res = await Https.apiURL.get("/users?page=$page");
         if (res.data != null && res.data['data'] is List) {
           final users =
               (res.data['data'] as List)

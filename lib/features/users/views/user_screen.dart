@@ -404,6 +404,28 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                       return;
                     }
 
+                    // final success = await ref
+                    //     .read(userControllerProvider.notifier)
+                    //     .addUser(name, job);
+
+                    // if (mounted) {
+                    //   Navigator.pop(context);
+                    //   ScaffoldMessenger.of(context).showSnackBar(
+                    //     SnackBar(
+                    //       content: Text(
+                    //         success
+                    //             ? isOnline
+                    //                 ? 'User added successfully'
+                    //                 : 'User saved offline and will sync when online'
+                    //             : 'Failed to add user',
+                    //       ),
+                    //     ),
+                    //   );
+
+                    //   // Refresh the list
+                    //   ref.read(userControllerProvider.notifier).getUsers();
+                    // }
+
                     final success = await ref
                         .read(userControllerProvider.notifier)
                         .addUser(name, job);
@@ -421,9 +443,13 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                           ),
                         ),
                       );
-
                       // Refresh the list
-                      ref.read(userControllerProvider.notifier).getUsers();
+                      ref
+                          .read(userControllerProvider.notifier)
+                          .getUsers(refresh: true);
+                          
+                      // Update the unsynced count
+                      ref.watch(unsyncedCountProvider);
                     }
                   },
                   child: const Text(
