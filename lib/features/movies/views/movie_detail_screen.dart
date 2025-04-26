@@ -12,8 +12,6 @@ class MovieDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
-  bool showFullStory = false;
-
   @override
   Widget build(BuildContext context) {
     final movieDetailState = ref.watch(
@@ -26,52 +24,85 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
         data: (movie) {
+          final screenHeight = MediaQuery.of(context).size.height;
+
           return Stack(
             children: [
-              // Background Poster
+              // Poster Background
               CachedNetworkImage(
                 imageUrl: movie.posterUrl,
-                height: 420,
+                height: screenHeight * 0.5,
                 width: double.infinity,
                 fit: BoxFit.cover,
-              ),
-
-              // Content with scroll
-              SingleChildScrollView(
-                padding: const EdgeInsets.only(top: 36),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top bar icons
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                placeholder:
+                    (context, url) => Container(
+                      color: Colors.grey[300],
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                errorWidget:
+                    (context, url, error) => Container(
+                      color: Color(0xFF121212),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const CircleAvatar(
-                            backgroundColor: Colors.black45,
-                            child: Icon(Icons.arrow_back, color: Colors.white),
+                          Icon(
+                            Icons.broken_image,
+                            size: 40,
+                            color: Colors.white,
                           ),
                         ],
                       ),
                     ),
+              ),
 
-                    const SizedBox(height: 240),
+              // Top bar back button
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 16,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const CircleAvatar(
+                    backgroundColor: Colors.black45,
+                    child: Icon(Icons.arrow_back, color: Colors.white),
+                  ),
+                ),
+              ),
 
-                    // Movie info panel
-                    Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Color(0xFF121212)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
+              // Draggable Bottom Sheet
+              DraggableScrollableSheet(
+                initialChildSize: 0.5,
+                minChildSize: 0.5,
+                maxChildSize: 0.9,
+                builder: (context, scrollController) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF121212),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: SingleChildScrollView(
+                      controller: scrollController,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+
+                          // Movie Title
                           Text(
                             movie.title,
                             style: const TextStyle(
@@ -80,15 +111,19 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
+
+                          // Genre | Runtime | Release Date
                           Text(
-                            'S1E9 • ${movie.genre} • 1 Season',
+                            '${movie.genre} | ${movie.runtime} | ${movie.released}',
                             style: const TextStyle(
                               color: Colors.white60,
                               fontSize: 14,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
+
+                          // Rating
                           Row(
                             children: [
                               const Icon(
@@ -98,7 +133,7 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                movie.imdbRating,
+                                "${movie.imdbRating} / 10 IMDb",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -107,80 +142,154 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
                               ),
                             ],
                           ),
+
+                          const SizedBox(height: 16),
+
+                          // Tags
+                          _buildTags(movie.genre),
+                          const SizedBox(height: 20),
+
+                          // Info Row
+                          _buildInfoRow(
+                            movie.runtime,
+                            movie.language,
+                            movie.rated,
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Description
+                          _sectionTitle("Description"),
+                          _sectionText(movie.plot),
+                          const SizedBox(height: 24),
+
+                          // Director & Writer
+                          _sectionTitle("Director & Writer"),
+                          _sectionText("Director: ${movie.director}"),
+                          _sectionText("Writer: ${movie.writer}"),
+                          const SizedBox(height: 24),
+
+                          // Awards
+                          _sectionTitle("Awards"),
+                          _sectionText(movie.awards),
+                          const SizedBox(height: 24),
+
+                          // Cast
+                          _sectionTitle("Cast"),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 80,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: 6,
+                              itemBuilder: (context, index) {
+                                return Container(
+                                  margin: const EdgeInsets.only(right: 12),
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundImage: NetworkImage(
+                                      'https://randomuser.me/api/portraits/men/$index.jpg',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                           const SizedBox(height: 20),
                         ],
                       ),
                     ),
-
-                    // Story Section
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            movie.plot,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            textAlign: TextAlign.justify,
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-
-                    // Last Episode Section
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${movie.title}',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          // Placeholder for episode (can replace with actual list)
-                          Text(
-                            '• Episode 9',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(
-                      height: 80,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: 6,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            margin: const EdgeInsets.only(right: 12),
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: NetworkImage(
-                                'https://randomuser.me/api/portraits/men/$index.jpg',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTags(String genre) {
+    final genres = genre.split(",");
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var g in genres) ...[
+            _buildTag(g.trim().toUpperCase()),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTag(String title) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF292929),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xFFDCDCDC),
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String length, String language, String rating) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        _buildInfoColumn("Length", length),
+        const SizedBox(width: 24),
+        _buildInfoColumn("Language", language),
+        const SizedBox(width: 24),
+        _buildInfoColumn("Rating", rating),
+      ],
+    );
+  }
+
+  Widget _buildInfoColumn(String title, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFFDCDCDC),
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _sectionText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        textAlign: TextAlign.justify,
       ),
     );
   }

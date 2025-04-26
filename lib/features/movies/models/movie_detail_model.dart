@@ -12,6 +12,12 @@ class MovieDetailModel {
   final String plot;
   final String posterUrl;
   final String imdbRating;
+  final String type;
+  final String language;
+  final String country;
+  final String awards;
+  final String metascore;
+  
 
   MovieDetailModel({
     required this.imdbID,
@@ -27,6 +33,11 @@ class MovieDetailModel {
     required this.plot,
     required this.posterUrl,
     required this.imdbRating,
+    required this.type,
+    required this.language,
+    required this.country,
+    required this.awards,
+    required this.metascore,
   });
 
   factory MovieDetailModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +55,11 @@ class MovieDetailModel {
       plot: json['Plot'] ?? 'N/A',
       posterUrl: json['Poster'] ?? '',
       imdbRating: json['imdbRating'] ?? 'N/A',
+      type: json['Type'] ?? 'N/A',
+      language: json['Language'] ?? 'N/A',
+      country: json['Country'] ?? 'N/A',
+      awards: json['Awards'] ?? 'N/A',
+      metascore: json['Metascore'] ?? 'N/A',
     );
   }
 }

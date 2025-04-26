@@ -78,9 +78,19 @@ class _UserScreenState extends ConsumerState<UserScreen> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       // In your UserScreen's appBar
       appBar: AppBar(
-        title: const Text('Users'),
+        backgroundColor: const Color(0xFF1E1E1E),
+
+        title: const Text(
+          'Users',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           riverpod.Consumer(
             builder: (context, ref, child) {
@@ -179,8 +189,14 @@ class _UserScreenState extends ConsumerState<UserScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.white.withOpacity(0.8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        tooltip: 'Add User',
+        heroTag: 'addUser',
+        // Use a unique hero tag to avoid conflicts
         onPressed: () => _showAddUserDialog(context),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.person_add, color: Colors.black),
       ),
     );
   }
@@ -235,9 +251,8 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                       ),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: const Color(0xFF1E1E1E),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -261,6 +276,7 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -313,24 +329,62 @@ class _UserScreenState extends ConsumerState<UserScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add User'),
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text(
+            'Add User',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  hintText: 'Enter name',
+                  hintStyle: TextStyle(color: Colors.white54),
+                  labelStyle: TextStyle(color: Colors.white54),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white54),
+                  ),
+                ),
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
               ),
               TextField(
                 controller: jobController,
-                decoration: const InputDecoration(labelText: 'Job'),
+                decoration: const InputDecoration(
+                  labelText: 'Job',
+                  hintText: 'Enter job',
+                  hintStyle: TextStyle(color: Colors.white54),
+                  labelStyle: TextStyle(color: Colors.white54),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white54),
+                  ),
+                ),
+                style: const TextStyle(color: Colors.white),
+
+                cursorColor: Colors.white,
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
             ),
             riverpod.Consumer(
               builder: (context, ref, _) {
@@ -372,7 +426,10 @@ class _UserScreenState extends ConsumerState<UserScreen> {
                       ref.read(userControllerProvider.notifier).getUsers();
                     }
                   },
-                  child: const Text('Add'),
+                  child: const Text(
+                    'Add',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 );
               },
             ),

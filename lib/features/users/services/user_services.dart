@@ -56,7 +56,7 @@ class UserServices {
   }) async {
     if (isOnline) {
       try {
-        var res = await Https.apiURL.get("/users?page=$page");
+        var res = await Https.apiURL.get("/users?page=2");
         if (res.data != null && res.data['data'] is List) {
           final users =
               (res.data['data'] as List)

@@ -1,17 +1,21 @@
-
 import 'package:flutter/material.dart';
 import 'package:movie_app/data/https.dart';
 import 'package:movie_app/features/movies/models/movie_model.dart';
 
 class MovieServices {
-  static Future<List<MovieModel>?> getMovies(int page, {String searchQuery = 'movie'}) async {
+  static Future<List<MovieModel>?> getMovies(
+    int page, {
+    String searchQuery = 'movie',
+  }) async {
     try {
-      var res = await Https.omdbApiURL.get("", queryParameters: {
-        's': searchQuery,
-        'type': 'movie',
-        'page': page.toString(),
-      });
-      
+      var res = await Https.omdbApiURL.get(
+        "",
+        queryParameters: {
+          's': "movies",
+          'page': page.toString(),
+        },
+      );
+
       if (res.data['Response'] == 'True' && res.data['Search'] is List) {
         return (res.data['Search'] as List)
             .map<MovieModel>((e) => MovieModel.fromJson(e))
@@ -24,7 +28,6 @@ class MovieServices {
     }
   }
 }
-
 
 // // lib/features/movies/services/movie_services.dart
 // import 'package:flutter/material.dart';
