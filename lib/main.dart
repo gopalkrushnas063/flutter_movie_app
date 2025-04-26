@@ -78,6 +78,7 @@
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:movie_app/data/local/database.dart';
 import 'package:movie_app/features/users/views/user_screen.dart';
@@ -98,6 +99,9 @@ final databaseInitializedProvider = StateProvider<bool>((ref) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
 
   // Get the database instance early but don't initialize fully
   final database = AppDatabase();

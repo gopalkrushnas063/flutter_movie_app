@@ -51,5 +51,7 @@
 	<array>
 	<string>_dartobservatory._tcp</string>
 	</array>
+	<key>Env</key>
+	<string>.env</string>
 </dict>
 </plist>
