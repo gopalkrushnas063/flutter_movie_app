@@ -64,6 +64,10 @@ class Https {
             RequestOptions options,
             RequestInterceptorHandler handler,
           ) {
+            options.headers = {
+                "x-api-key": 'reqres-free-v1',
+    
+              };
             // Add any request modifications here
             debugPrint('Request to ${options.uri}');
             return handler.next(options);
